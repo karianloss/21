@@ -1,0 +1,267 @@
+#include <iostream>
+#include <vector>
+#include <string>
+#include <ctime>
+#include <algorithm>
+#include <random>
+
+using namespace std;
+
+// Класс для представления карты
+class Card {
+public:
+    enum Suit { HEARTS, DIAMONDS, CLUBS, SPADES };
+    enum Rank { ACE = 1, TWO, THREE, FOUR, FIVE, SIX, SEVEN, EIGHT, NINE, TEN, JACK, QUEEN, KING };
+
+    Card(Rank rank, Suit suit) : rank(rank), suit(suit) {}
+
+    // Получить значение карты в игре
+    int getValue() const {
+        if (rank >= TEN) return 10;
+        return rank;
+    }
+
+    // Преобразовать карту в строку
+    string toString() const {
+        string rankStr;
+        switch (rank) {
+            case ACE: rankStr = "A"; break;
+            case JACK: rankStr = "J"; break;
+            case QUEEN: rankStr = "Q"; break;
+            case KING: rankStr = "K"; break;
+            default: rankStr = to_string(rank); break;
+        }
+
+        string suitStr;
+        switch (suit) {
+            case HEARTS: suitStr = "♥"; break;
+            case DIAMONDS: suitStr = "♦"; break;
+            case CLUBS: suitStr = "♣"; break;
+            case SPADES: suitStr = "♠"; break;
+        }
+
+        return rankStr + suitStr;
+    }
+
+private:
+    Rank rank;
+    Suit suit;
+};
+
+// Класс для представления колоды карт
+class Deck {
+public:
+    Deck() {
+        // Создаем полную колоду из 52 карт
+        for (int s = Card::HEARTS; s <= Card::SPADES; ++s) {
+            for (int r = Card::ACE; r <= Card::KING; ++r) {
+                cards.push_back(Card(static_cast<Card::Rank>(r), static_cast<Card::Suit>(s)));
+            }
+        }
+    }
+
+    // Перетасовать колоду
+    void shuffle() {
+        random_device rd;
+        mt19937 g(rd());
+        std::shuffle(cards.begin(), cards.end(), g);
+    }
+
+    // Взять карту из колоды
+    Card dealCard() {
+        Card card = cards.back();
+        cards.pop_back();
+        return card;
+    }
+
+    // Проверить, пуста ли колода
+    bool isEmpty() const {
+        return cards.empty();
+    }
+
+private:
+    vector<Card> cards;
+};
+
+// Класс для представления руки игрока
+class Hand {
+public:
+    void addCard(Card card) {
+        cards.push_back(card);
+    }
+
+    // Получить общее количество очков в руке
+    int getTotal() const {
+        int total = 0;
+        int aces = 0;
+
+        for (const Card& card : cards) {
+            total += card.getValue();
+            if (card.getValue() == Card::ACE) {
+                aces++;
+            }
+        }
+
+        // Учитываем возможность считать туз за 11 очков
+        while (total <= 11 && aces > 0) {
+            total += 10;
+            aces--;
+        }
+
+        return total;
+    }
+
+    // Показать карты в руке
+    void show(bool showFirstCard = true) const {
+        for (size_t i = 0; i < cards.size(); ++i) {
+            if (i == 0 && !showFirstCard) {
+                cout << "[скрыто] ";
+            } else {
+                cout << cards[i].toString() << " ";
+            }
+        }
+        cout << endl;
+    }
+
+    // Проверить, есть ли перебор (больше 21)
+    bool isBusted() const {
+        return getTotal() > 21;
+    }
+
+    // Проверить, есть ли блек-джек (ровно 21 из 2 карт)
+    bool hasBlackjack() const {
+        return cards.size() == 2 && getTotal() == 21;
+    }
+
+private:
+    vector<Card> cards;
+};
+
+// Класс для представления игры
+class Game21 {
+public:
+    Game21() {
+        deck.shuffle();
+    }
+
+    void play() {
+        cout << "Добро пожаловать в игру 21 очко!" << endl << endl;
+
+        // Раздать начальные карты
+        playerHand.addCard(deck.dealCard());
+        dealerHand.addCard(deck.dealCard());
+        playerHand.addCard(deck.dealCard());
+        dealerHand.addCard(deck.dealCard());
+
+        // Показать карты
+        cout << "Карты дилера: ";
+        dealerHand.show(false);
+        cout << "Ваши карты: ";
+        playerHand.show();
+        cout << "Ваши очки: " << playerHand.getTotal() << endl << endl;
+
+        // Ход игрока
+        playerTurn();
+
+        // Ход дилера, если игрок не проиграл
+        if (!playerHand.isBusted()) {
+            dealerTurn();
+        }
+
+        // Определить победителя
+        determineWinner();
+    }
+
+private:
+    Deck deck;
+    Hand playerHand;
+    Hand dealerHand;
+
+    void playerTurn() {
+        while (true) {
+            cout << "Хотите взять еще карту? (д/н): ";
+            char choice;
+            cin >> choice;
+
+            if (tolower(choice) == 'д') {
+                playerHand.addCard(deck.dealCard());
+                cout << "Вы получили: " << playerHand.getCards().back().toString() << endl;
+                cout << "Ваши карты: ";
+                playerHand.show();
+                cout << "Ваши очки: " << playerHand.getTotal() << endl << endl;
+
+                if (playerHand.isBusted()) {
+                    cout << "Перебор! Вы проиграли." << endl;
+                    break;
+                }
+            } else {
+                break;
+            }
+        }
+    }
+
+    void dealerTurn() {
+        cout << "Карты дилера: ";
+        dealerHand.show();
+        cout << "Очки дилера: " << dealerHand.getTotal() << endl << endl;
+
+        while (dealerHand.getTotal() < 17) {
+            cout << "Дилер берет карту..." << endl;
+            dealerHand.addCard(deck.dealCard());
+            cout << "Дилер получил: " << dealerHand.getCards().back().toString() << endl;
+            cout << "Карты дилера: ";
+            dealerHand.show();
+            cout << "Очки дилера: " << dealerHand.getTotal() << endl << endl;
+
+            if (dealerHand.isBusted()) {
+                cout << "У дилера перебор! Вы выиграли." << endl;
+                return;
+            }
+        }
+    }
+
+    void determineWinner() {
+        if (playerHand.isBusted()) {
+            return; // Игрок уже проиграл
+        }
+
+        if (dealerHand.isBusted()) {
+            return; // Дилер уже проиграл
+        }
+
+        int playerTotal = playerHand.getTotal();
+        int dealerTotal = dealerHand.getTotal();
+
+        cout << "Итоговые очки:" << endl;
+        cout << "Вы: " << playerTotal << endl;
+        cout << "Дилер: " << dealerTotal << endl << endl;
+
+        if (playerTotal > dealerTotal) {
+            cout << "Поздравляем! Вы выиграли!" << endl;
+        } else if (playerTotal < dealerTotal) {
+            cout << "К сожалению, вы проиграли." << endl;
+        } else {
+            cout << "Ничья!" << endl;
+        }
+    }
+};
+
+int main() {
+    srand(static_cast<unsigned int>(time(0))); // Для случайного перемешивания
+
+    while (true) {
+        Game21 game;
+        game.play();
+
+        cout << endl << "Хотите сыграть еще раз? (д/н): ";
+        char choice;
+        cin >> choice;
+        if (tolower(choice) != 'д') {
+            break;
+        }
+        cout << endl;
+    }
+
+    cout << "Спасибо за игру!" << endl;
+    return 0;
+}
